@@ -1,0 +1,4 @@
+2026-07-26 17:02:27,529 [INFO] agent:vector_store.py:92:load_document - [加载知识库]D:\Pycharm\Project\RagProjectWithAgent\data\china_culture_landscape_guide.txt 内容加载成功
+2026-07-26 17:02:28,561 [INFO] agent:vector_store.py:92:load_document - [加载知识库]D:\Pycharm\Project\RagProjectWithAgent\data\china_famous_attractions.txt 内容加载成功
+2026-07-26 17:02:29,505 [INFO] agent:vector_store.py:92:load_document - [加载知识库]D:\Pycharm\Project\RagProjectWithAgent\data\china_transport_guide.txt 内容加载成功
+2026-07-26 17:02:30,082 [INFO] agent:vector_store.py:92:load_document - [加载知识库]D:\Pycharm\Project\RagProjectWithAgent\data\china_weather_season_guide.txt 内容加载成功

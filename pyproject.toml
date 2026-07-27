@@ -3,4 +3,12 @@ name = "ragprojectwithagent"
 version = "0.1.0"
 description = "Add your description here"
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "chroma>=0.2.0",
+    "dashscope>=1.26.4",
+    "langchain>=1.3.14",
+    "langchain-chroma>=1.1.0",
+    "langchain-community>=0.4.2",
+    "langchain-openai>=1.4.1",
+    "pyyaml>=6.0.3",
+]

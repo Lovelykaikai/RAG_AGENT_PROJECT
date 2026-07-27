@@ -1,0 +1,10 @@
+2026-07-26 15:31:34,419 [ERROR] agent:file_handler.py:36:listdir_with_allowed_type - data不是文件夹
+2026-07-26 15:31:34,419 [ERROR] agent:file_handler.py:11:get_file_md5_hex - [md5计算]文件.txt不存在
+2026-07-26 15:31:34,419 [ERROR] agent:file_handler.py:47:_check_file - [文件加载]文件不存在或不是文件: .txt
+2026-07-26 15:31:34,419 [WARNING] agent:vector_store.py:79:load_document - [加载知识库].txt内没有有效文本内容，跳过
+2026-07-26 15:31:34,419 [ERROR] agent:file_handler.py:11:get_file_md5_hex - [md5计算]文件.pdf不存在
+2026-07-26 15:31:34,420 [ERROR] agent:file_handler.py:47:_check_file - [文件加载]文件不存在或不是文件: .pdf
+2026-07-26 15:31:34,420 [WARNING] agent:vector_store.py:79:load_document - [加载知识库].pdf内没有有效文本内容，跳过
+2026-07-26 15:31:34,420 [ERROR] agent:file_handler.py:11:get_file_md5_hex - [md5计算]文件.docx不存在
+2026-07-26 15:31:34,420 [ERROR] agent:file_handler.py:47:_check_file - [文件加载]文件不存在或不是文件: .docx
+2026-07-26 15:31:34,420 [WARNING] agent:vector_store.py:79:load_document - [加载知识库].docx内没有有效文本内容，跳过

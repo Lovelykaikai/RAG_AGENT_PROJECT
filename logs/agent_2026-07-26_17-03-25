@@ -1,0 +1,4 @@
+2026-07-26 17:03:27,151 [INFO] agent:vector_store.py:72:load_document - [加载知识库]内容已存在知识库，跳过
+2026-07-26 17:03:27,151 [INFO] agent:vector_store.py:72:load_document - [加载知识库]内容已存在知识库，跳过
+2026-07-26 17:03:27,151 [INFO] agent:vector_store.py:72:load_document - [加载知识库]内容已存在知识库，跳过
+2026-07-26 17:03:27,152 [INFO] agent:vector_store.py:72:load_document - [加载知识库]内容已存在知识库，跳过
