@@ -88,3 +88,9 @@ class ReactAgent:
 
 if __name__ == "__main__":
     print(get_abs_path(chroma_conf["persist_directory"]))
+    agent = ReactAgent()
+
+    query = "帮我生成一份上海三日游旅游攻略报告，出发地是上海虹桥站，日期是2026-08-01。"
+
+    for text in agent.execute_text_stream(query):
+        print(text, end="")
