@@ -61,7 +61,10 @@ class ReactAgent:
                             "args": tool_call.get("args", {}),
                         }
 
+                message_type = getattr(latest_message, "type", None)
                 content = getattr(latest_message, "content", None)
+                if message_type in ("human", "tool"):
+                    continue
                 if content:
                     yield {
                         "type": "message",
