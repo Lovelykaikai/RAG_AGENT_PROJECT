@@ -1,3 +1,5 @@
+# 终端运行：uvicorn main:app --reload
+
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -15,3 +17,5 @@ app.mount("/static", StaticFiles(directory=get_abs_path("static")), name="static
 @app.get("/")
 def index() -> FileResponse:
     return FileResponse(get_abs_path("static/index.html"))
+
+# 测试回答：我想去杭州旅游三天，帮我找一段天气好的时间给我做一份旅游攻略。

@@ -12,6 +12,29 @@ from utils.path_tool import get_abs_path
 from utils.prompt_loader import load_system_prompt
 
 
+REPORT_INTENT_KEYWORDS = (
+    "报告",
+    "攻略报告",
+    "旅行报告",
+    "旅游报告",
+    "生成一份",
+    "出一份",
+    "写一份",
+    "整理成",
+    "markdown",
+    "Markdown",
+)
+
+
+def has_report_intent(query: str) -> bool:
+    """判断用户是否希望得到报告式输出。"""
+    normalized_query = query.strip()
+    if not normalized_query:
+        return False
+
+    return any(keyword in normalized_query for keyword in REPORT_INTENT_KEYWORDS)
+
+
 class ReactAgent:
     def __init__(self):
         self.agent = create_agent(
@@ -26,8 +49,9 @@ class ReactAgent:
             context_schema=dict,
         )
 
-    def execute_stream(self, query: str) -> Iterator[dict[str, Any]]:
+    def execute_stream(self, query: str, report: bool | None = None) -> Iterator[dict[str, Any]]:
         """返回结构化事件流，方便前端区分模型消息、工具调用和错误。"""
+        use_report_prompt = has_report_intent(query) if report is None else report
         input_dict = {
             "messages": [
                 {"role": "user", "content": query},
@@ -39,7 +63,7 @@ class ReactAgent:
             for chunk in self.agent.stream(
                 input_dict,
                 stream_mode="values",
-                context={"report": False},
+                context={"report": use_report_prompt},
             ):
                 messages = chunk.get("messages", [])
                 if not messages:
@@ -77,9 +101,9 @@ class ReactAgent:
                 "content": f"Agent执行失败: {str(e)}",
             }
 
-    def execute_text_stream(self, query: str) -> Iterator[str]:
+    def execute_text_stream(self, query: str, report: bool | None = None) -> Iterator[str]:
         """返回文本流，方便命令行或简单控制台测试。"""
-        for event in self.execute_stream(query):
+        for event in self.execute_stream(query, report=report):
             event_type = event.get("type")
             if event_type == "message":
                 yield event["content"] + "\n"

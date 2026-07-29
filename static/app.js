@@ -25,7 +25,59 @@ function setBusy(isBusy) {
   sendBtn.textContent = isBusy ? "生成中..." : "发送";
 }
 
-async function sendMessage(message) {
+function appendToMessage(messageElement, text) {
+  const bubble = messageElement.querySelector(".bubble");
+  if (messageElement.dataset.started !== "true") {
+    bubble.textContent = "";
+    messageElement.dataset.started = "true";
+  }
+  bubble.textContent += text;
+  chatLog.scrollTop = chatLog.scrollHeight;
+}
+
+async function readStreamingAnswer(response, messageElement) {
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder("utf-8");
+  let buffer = "";
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) {
+      break;
+    }
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+
+    for (const line of lines) {
+      if (!line.trim()) {
+        continue;
+      }
+
+      const event = JSON.parse(line);
+      if (event.type === "chunk") {
+        appendToMessage(messageElement, event.content || "");
+      }
+      if (event.type === "error") {
+        throw new Error(event.content || "Agent调用失败");
+      }
+    }
+  }
+
+  buffer += decoder.decode();
+  if (buffer.trim()) {
+    const event = JSON.parse(buffer);
+    if (event.type === "chunk") {
+      appendToMessage(messageElement, event.content || "");
+    }
+    if (event.type === "error") {
+      throw new Error(event.content || "Agent调用失败");
+    }
+  }
+}
+
+async function sendMessage(message, messageElement) {
   const response = await fetch("/api/chat", {
     method: "POST",
     headers: {
@@ -34,13 +86,12 @@ async function sendMessage(message) {
     body: JSON.stringify({ message }),
   });
 
-  const data = await response.json().catch(() => ({}));
-
   if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
     throw new Error(data.detail || "请求失败，请稍后重试");
   }
 
-  return data.answer || "没有生成有效回答。";
+  await readStreamingAnswer(response, messageElement);
 }
 
 chatForm.addEventListener("submit", async (event) => {
@@ -58,9 +109,11 @@ chatForm.addEventListener("submit", async (event) => {
   setBusy(true);
 
   try {
-    const answer = await sendMessage(message);
+    await sendMessage(message, loadingMessage);
     loadingMessage.classList.remove("loading");
-    loadingMessage.querySelector(".bubble").textContent = answer;
+    if (!loadingMessage.querySelector(".bubble").textContent.trim()) {
+      loadingMessage.querySelector(".bubble").textContent = "没有生成有效回答。";
+    }
   } catch (error) {
     loadingMessage.classList.remove("loading");
     loadingMessage.querySelector(".bubble").textContent = error.message;
@@ -84,4 +137,3 @@ clearBtn.addEventListener("click", () => {
   );
   messageInput.focus();
 });
-

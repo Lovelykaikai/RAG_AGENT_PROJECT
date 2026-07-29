@@ -3,7 +3,7 @@ import os
 import urllib.parse
 import urllib.request
 from datetime import datetime
-from functools import lru_cache
+from threading import Lock
 from typing import Any
 
 from dotenv import load_dotenv
@@ -16,11 +16,20 @@ load_dotenv()
 
 AMAP_BASE_URL = "https://restapi.amap.com"
 DEFAULT_ROUTE_MODE = "mixed"
+_rag_service_lock = Lock()
+_rag_service: RagSummarizeService | None = None
 
 
-@lru_cache(maxsize=1)
 def _get_rag_service() -> RagSummarizeService:
-    return RagSummarizeService()
+    global _rag_service
+
+    if _rag_service is not None:
+        return _rag_service
+
+    with _rag_service_lock:
+        if _rag_service is None:
+            _rag_service = RagSummarizeService()
+        return _rag_service
 
 
 def _get_amap_key() -> str | None:
@@ -109,7 +118,14 @@ def _fallback_weather(city: str, date: str | None) -> str:
 @tool(description="从本地向量库中检索并总结旅游攻略参考资料，入参为用户问题或检索关键词")
 def rag_summarize(query: str) -> str:
     """检索本地旅游知识库，并把相关资料总结成攻略参考。"""
-    return _get_rag_service().rag_summarize(query)
+    try:
+        return _get_rag_service().rag_summarize(query)
+    except Exception as exc:
+        logger.error(f"[rag_summarize]检索本地知识库失败: {str(exc)}", exc_info=True)
+        return (
+            "暂时无法读取本地旅游知识库。请基于已有对话信息和常规旅游规划原则生成保守攻略，"
+            "并提醒用户部分景点、天气、交通和开放信息需要出发前再次确认。"
+        )
 
 
 @tool(description="获取指定中国城市的天气信息。date必须使用YYYY-MM-DD格式，可为空；返回简洁中文字符串")
