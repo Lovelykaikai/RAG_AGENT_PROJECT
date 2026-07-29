@@ -1,0 +1,57 @@
+2026-07-27 14:28:36,236 [INFO] agent:middleware.py:21:log_before_model - [log_before_model]即将调用模型，带有1条消息。
+2026-07-27 14:28:36,236 [DEBUG] agent:middleware.py:26:log_before_model - [log_before_model]HumanMessage | 帮我生成一份上海三日游旅游攻略报告，出发地是上海虹桥站，日期是2026-08-01。
+2026-07-27 14:28:45,718 [INFO] agent:middleware.py:39:monitor_tool - [tool_monitor]执行工具: get_weather
+2026-07-27 14:28:45,721 [INFO] agent:middleware.py:40:monitor_tool - [tool_monitor]传入参数: {'city': '上海', 'date': '2026-08-02'}
+2026-07-27 14:28:45,721 [INFO] agent:middleware.py:39:monitor_tool - [tool_monitor]执行工具: get_city_transport
+2026-07-27 14:28:45,722 [INFO] agent:middleware.py:39:monitor_tool - [tool_monitor]执行工具: get_weather
+2026-07-27 14:28:45,722 [INFO] agent:middleware.py:39:monitor_tool - [tool_monitor]执行工具: rag_summarize
+2026-07-27 14:28:45,722 [INFO] agent:middleware.py:39:monitor_tool - [tool_monitor]执行工具: get_weather
+2026-07-27 14:28:45,722 [INFO] agent:middleware.py:39:monitor_tool - [tool_monitor]执行工具: get_user_location
+2026-07-27 14:28:45,732 [INFO] agent:middleware.py:40:monitor_tool - [tool_monitor]传入参数: {'destination_city': '上海', 'user_location': '上海虹桥站'}
+2026-07-27 14:28:45,733 [INFO] agent:middleware.py:44:monitor_tool - [tool_monitor]工具get_user_location调用成功
+2026-07-27 14:28:45,732 [INFO] agent:middleware.py:44:monitor_tool - [tool_monitor]工具get_weather调用成功
+2026-07-27 14:28:45,732 [INFO] agent:middleware.py:40:monitor_tool - [tool_monitor]传入参数: {'query': '上海三日游攻略 经典景点 美食推荐 路线规划'}
+2026-07-27 14:28:45,732 [INFO] agent:middleware.py:40:monitor_tool - [tool_monitor]传入参数: {'city': '上海', 'date': '2026-08-03'}
+2026-07-27 14:28:45,731 [INFO] agent:middleware.py:40:monitor_tool - [tool_monitor]传入参数: {'city': '上海'}
+2026-07-27 14:28:45,731 [INFO] agent:middleware.py:40:monitor_tool - [tool_monitor]传入参数: {'city': '上海', 'date': '2026-08-01'}
+2026-07-27 14:28:45,759 [INFO] agent:middleware.py:44:monitor_tool - [tool_monitor]工具get_weather调用成功
+2026-07-27 14:28:45,765 [INFO] agent:middleware.py:44:monitor_tool - [tool_monitor]工具get_weather调用成功
+2026-07-27 14:28:45,851 [INFO] agent:middleware.py:44:monitor_tool - [tool_monitor]工具get_city_transport调用成功
+2026-07-27 14:28:50,487 [INFO] agent:middleware.py:44:monitor_tool - [tool_monitor]工具rag_summarize调用成功
+2026-07-27 14:28:50,488 [INFO] agent:middleware.py:21:log_before_model - [log_before_model]即将调用模型，带有8条消息。
+2026-07-27 14:28:50,488 [DEBUG] agent:middleware.py:26:log_before_model - [log_before_model]ToolMessage | 用户起始位置：上海虹桥站
+2026-07-27 14:28:59,442 [INFO] agent:middleware.py:39:monitor_tool - [tool_monitor]执行工具: search_poi
+2026-07-27 14:28:59,443 [INFO] agent:middleware.py:40:monitor_tool - [tool_monitor]传入参数: {'keyword': '豫园', 'city': '上海'}
+2026-07-27 14:28:59,443 [INFO] agent:middleware.py:44:monitor_tool - [tool_monitor]工具search_poi调用成功
+2026-07-27 14:28:59,443 [INFO] agent:middleware.py:39:monitor_tool - [tool_monitor]执行工具: search_poi
+2026-07-27 14:28:59,443 [INFO] agent:middleware.py:40:monitor_tool - [tool_monitor]传入参数: {'keyword': '上海迪士尼乐园', 'city': '上海'}
+2026-07-27 14:28:59,444 [INFO] agent:middleware.py:44:monitor_tool - [tool_monitor]工具search_poi调用成功
+2026-07-27 14:28:59,444 [INFO] agent:middleware.py:39:monitor_tool - [tool_monitor]执行工具: search_poi
+2026-07-27 14:28:59,444 [INFO] agent:middleware.py:40:monitor_tool - [tool_monitor]传入参数: {'keyword': '南京路步行街', 'city': '上海'}
+2026-07-27 14:28:59,445 [INFO] agent:middleware.py:44:monitor_tool - [tool_monitor]工具search_poi调用成功
+2026-07-27 14:28:59,445 [INFO] agent:middleware.py:39:monitor_tool - [tool_monitor]执行工具: search_poi
+2026-07-27 14:28:59,445 [INFO] agent:middleware.py:40:monitor_tool - [tool_monitor]传入参数: {'keyword': '上海博物馆', 'city': '上海'}
+2026-07-27 14:28:59,445 [INFO] agent:middleware.py:39:monitor_tool - [tool_monitor]执行工具: search_poi
+2026-07-27 14:28:59,446 [INFO] agent:middleware.py:40:monitor_tool - [tool_monitor]传入参数: {'keyword': '田子坊', 'city': '上海'}
+2026-07-27 14:28:59,446 [INFO] agent:middleware.py:44:monitor_tool - [tool_monitor]工具search_poi调用成功
+2026-07-27 14:28:59,445 [INFO] agent:middleware.py:44:monitor_tool - [tool_monitor]工具search_poi调用成功
+2026-07-27 14:28:59,446 [INFO] agent:middleware.py:39:monitor_tool - [tool_monitor]执行工具: search_poi
+2026-07-27 14:28:59,446 [INFO] agent:middleware.py:40:monitor_tool - [tool_monitor]传入参数: {'keyword': '外滩', 'city': '上海'}
+2026-07-27 14:28:59,447 [INFO] agent:middleware.py:44:monitor_tool - [tool_monitor]工具search_poi调用成功
+2026-07-27 14:28:59,447 [INFO] agent:middleware.py:39:monitor_tool - [tool_monitor]执行工具: search_poi
+2026-07-27 14:28:59,447 [INFO] agent:middleware.py:40:monitor_tool - [tool_monitor]传入参数: {'keyword': '陆家嘴', 'city': '上海'}
+2026-07-27 14:28:59,448 [INFO] agent:middleware.py:44:monitor_tool - [tool_monitor]工具search_poi调用成功
+2026-07-27 14:28:59,448 [INFO] agent:middleware.py:39:monitor_tool - [tool_monitor]执行工具: search_poi
+2026-07-27 14:28:59,448 [INFO] agent:middleware.py:40:monitor_tool - [tool_monitor]传入参数: {'keyword': '东方明珠', 'city': '上海'}
+2026-07-27 14:28:59,448 [INFO] agent:middleware.py:39:monitor_tool - [tool_monitor]执行工具: rag_summarize
+2026-07-27 14:28:59,451 [INFO] agent:middleware.py:40:monitor_tool - [tool_monitor]传入参数: {'query': '上海8月天气 夏季旅游注意事项 防暑'}
+2026-07-27 14:28:59,451 [INFO] agent:middleware.py:44:monitor_tool - [tool_monitor]工具search_poi调用成功
+2026-07-27 14:29:03,520 [INFO] agent:middleware.py:44:monitor_tool - [tool_monitor]工具rag_summarize调用成功
+2026-07-27 14:29:03,521 [INFO] agent:middleware.py:21:log_before_model - [log_before_model]即将调用模型，带有18条消息。
+2026-07-27 14:29:03,521 [DEBUG] agent:middleware.py:26:log_before_model - [log_before_model]ToolMessage | 参考资料不足，无法完整总结。
+2026-07-27 14:29:14,596 [INFO] agent:middleware.py:39:monitor_tool - [tool_monitor]执行工具: fill_context_for_report
+2026-07-27 14:29:14,596 [INFO] agent:middleware.py:40:monitor_tool - [tool_monitor]传入参数: {}
+2026-07-27 14:29:14,597 [INFO] agent:middleware.py:44:monitor_tool - [tool_monitor]工具fill_context_for_report调用成功
+2026-07-27 14:29:14,597 [INFO] agent:middleware.py:50:monitor_tool - [tool_monitor]已标记报告生成上下文: report=True
+2026-07-27 14:29:14,597 [INFO] agent:middleware.py:21:log_before_model - [log_before_model]即将调用模型，带有20条消息。
+2026-07-27 14:29:14,597 [DEBUG] agent:middleware.py:26:log_before_model - [log_before_model]ToolMessage | fill_context_for_report已调用
