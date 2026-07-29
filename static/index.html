@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>旅游攻略 Agent</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="chat-panel" aria-label="旅游攻略对话">
+        <header class="chat-header">
+          <div>
+            <h1>旅游攻略 Agent</h1>
+            <p>中国城市攻略规划练手项目</p>
+          </div>
+          <button id="clearBtn" class="ghost-button" type="button">清空</button>
+        </header>
+
+        <div id="chatLog" class="chat-log" aria-live="polite">
+          <article class="message assistant">
+            <div class="bubble">
+              你好，我可以帮你规划中国城市旅行攻略。你可以试试输入：帮我做一份上海三日游攻略，出发地是上海虹桥站，日期是2026-08-01。
+            </div>
+          </article>
+        </div>
+
+        <form id="chatForm" class="composer">
+          <textarea
+            id="messageInput"
+            name="message"
+            rows="3"
+            placeholder="输入你的旅行需求..."
+            autocomplete="off"
+            required
+          ></textarea>
+          <button id="sendBtn" type="submit">发送</button>
+        </form>
+      </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
+
