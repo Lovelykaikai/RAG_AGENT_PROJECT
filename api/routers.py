@@ -1,26 +1,40 @@
 import json
-from functools import lru_cache
 from collections.abc import Iterator
+from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from agent.react_agent import ReactAgent
-from api.schemas import ChatRequest
+from api.schemas import (
+    ChatRequest,
+    HistoryMessage,
+    SessionRenameRequest,
+    SessionResponse,
+)
+from memory.session_store import MySQLSessionStore
 from utils.logger_handler import logger
 
 
 router = APIRouter(prefix="/api", tags=["chat"])
 
 
-@lru_cache(maxsize=1)
-def get_agent() -> ReactAgent:
-    return ReactAgent()
+def get_agent(request: Request) -> ReactAgent:
+    return request.app.state.agent
 
 
-def stream_agent_answer(message: str) -> Iterator[str]:
+def get_session_store(request: Request) -> MySQLSessionStore:
+    return request.app.state.session_store
+
+
+def make_session_title(message: str) -> str:
+    title = " ".join(message.split())
+    return title[:24] + ("..." if len(title) > 24 else "")
+
+
+def stream_agent_answer(message: str, thread_id: str, agent: ReactAgent) -> Iterator[str]:
     try:
-        for event in get_agent().execute_stream(message):
+        for event in agent.execute_stream(message, thread_id):
             event_type = event.get("type")
             if event_type == "message":
                 yield json.dumps(
@@ -57,13 +71,65 @@ def stream_agent_answer(message: str) -> Iterator[str]:
         ) + "\n"
 
 
+@router.post("/sessions", response_model=SessionResponse)
+def create_session(request: Request) -> dict:
+    thread_id = f"thread_{uuid4().hex}"
+    return get_session_store(request).create(thread_id)
+
+
+@router.get("/sessions", response_model=list[SessionResponse])
+def list_sessions(request: Request) -> list[dict]:
+    return get_session_store(request).list()
+
+
+@router.get("/sessions/{thread_id}/messages", response_model=list[HistoryMessage])
+def get_session_messages(thread_id: str, request: Request) -> list[dict]:
+    session_store = get_session_store(request)
+    if session_store.get(thread_id) is None:
+        raise HTTPException(status_code=404, detail="会话不存在")
+    return get_agent(request).get_history(thread_id)
+
+
+@router.post("/sessions/{thread_id}/reset", response_model=SessionResponse)
+def reset_session(thread_id: str, request: Request) -> dict:
+    session_store = get_session_store(request)
+    if session_store.get(thread_id) is None:
+        raise HTTPException(status_code=404, detail="会话不存在")
+    get_agent(request).reset_thread(thread_id)
+    return session_store.reset(thread_id)  # type: ignore[return-value]
+
+
+@router.patch("/sessions/{thread_id}", response_model=SessionResponse)
+def rename_session(
+    thread_id: str,
+    payload: SessionRenameRequest,
+    request: Request,
+) -> dict:
+    session = get_session_store(request).rename(thread_id, payload.title.strip())
+    if session is None:
+        raise HTTPException(status_code=404, detail="会话不存在")
+    return session
+
+
 @router.post("/chat")
-def chat(request: ChatRequest) -> StreamingResponse:
-    message = request.message.strip()
+def chat(payload: ChatRequest, http_request: Request) -> StreamingResponse:
+    message = payload.message.strip()
+    thread_id = payload.thread_id.strip()
     if not message:
         raise HTTPException(status_code=400, detail="message不能为空")
+    if not thread_id:
+        raise HTTPException(status_code=400, detail="thread_id不能为空")
+
+    session_store = get_session_store(http_request)
+    session = session_store.get(thread_id)
+    if session is None:
+        session_store.create(thread_id, make_session_title(message))
+    elif session["title"] == "新的行程":
+        session_store.rename(thread_id, make_session_title(message))
+    else:
+        session_store.touch(thread_id)
 
     return StreamingResponse(
-        stream_agent_answer(message),
+        stream_agent_answer(message, thread_id, get_agent(http_request)),
         media_type="application/x-ndjson; charset=utf-8",
     )

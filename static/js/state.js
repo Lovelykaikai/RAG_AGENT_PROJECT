@@ -106,6 +106,63 @@ export class SessionStore {
     return session;
   }
 
+  addRemoteSession(remoteSession) {
+    const existing = this.data.sessions.find(
+      (session) => session.threadId === remoteSession.thread_id,
+    );
+    if (existing) {
+      return existing;
+    }
+
+    const session = normalizeSession({
+      threadId: remoteSession.thread_id,
+      title: remoteSession.title,
+      createdAt: remoteSession.created_at,
+      updatedAt: remoteSession.updated_at,
+      messages: [],
+    });
+    this.data.sessions.push(session);
+    this.data.activeThreadId = session.threadId;
+    this.persist();
+    return session;
+  }
+
+  replaceFromRemote(remoteSessions) {
+    const localById = new Map(this.data.sessions.map((session) => [session.threadId, session]));
+    const remoteIds = new Set(remoteSessions.map((session) => session.thread_id));
+    const remoteData = remoteSessions.map((remoteSession) => {
+      const localSession = localById.get(remoteSession.thread_id);
+      return normalizeSession({
+        threadId: remoteSession.thread_id,
+        title: remoteSession.title,
+        createdAt: remoteSession.created_at,
+        updatedAt: remoteSession.updated_at,
+        messages: localSession?.messages || [],
+      });
+    });
+    const localOnlyData = this.data.sessions.filter((session) => !remoteIds.has(session.threadId));
+    this.data.sessions = [...remoteData, ...localOnlyData];
+    const activeStillExists = this.data.sessions.some(
+      (session) => session.threadId === this.data.activeThreadId,
+    );
+    this.data.activeThreadId = activeStillExists
+      ? this.data.activeThreadId
+      : this.data.sessions[0]?.threadId || null;
+    this.persist();
+  }
+
+  replaceMessages(messages, threadId = this.activeThreadId) {
+    const session = this.data.sessions.find((item) => item.threadId === threadId);
+    if (!session) {
+      return;
+    }
+    session.messages = messages
+      .filter((message) => message.role !== "system")
+      .map(normalizeMessage);
+    session.updatedAt = new Date().toISOString();
+    this.persist();
+  }
+
   activate(threadId) {
     if (!this.data.sessions.some((session) => session.threadId === threadId)) {
       return null;

@@ -1,4 +1,10 @@
-import { streamChat } from "./api-client.js";
+import {
+  createSession as createRemoteSession,
+  getSessionMessages,
+  listSessions,
+  resetSession as resetRemoteSession,
+  streamChat,
+} from "./api-client.js";
 import { SessionStore } from "./state.js";
 import {
   appendMessage,
@@ -26,9 +32,11 @@ const elements = {
   newSessionBtn: document.querySelector("#newSessionBtn"),
   menuBtn: document.querySelector("#menuBtn"),
   connectionStatus: document.querySelector("#connectionStatus"),
+  storageMode: document.querySelector("#storageMode"),
 };
 
 let isBusy = false;
+let backendReady = false;
 
 function render() {
   const session = store.activeSession;
@@ -54,28 +62,70 @@ function setBusy(busy) {
   statusDot?.classList.remove("is-error");
 }
 
-function activateSession(threadId) {
+function setBackendState(isReady) {
+  backendReady = isReady;
+  elements.storageMode.textContent = isReady ? "MySQL 会话已连接" : "本地演示模式";
+}
+
+async function loadHistory(threadId) {
+  if (!backendReady) {
+    return;
+  }
+  try {
+    const messages = await getSessionMessages(threadId);
+    store.replaceMessages(messages, threadId);
+  } catch (error) {
+    // localStorage 中的旧会话可能尚未同步到 MySQL，保留本地消息作为回退。
+    if (error.status !== 404) {
+      console.warn("无法加载服务器历史消息，将继续显示本地缓存。", error);
+    }
+  }
+}
+
+async function activateSession(threadId) {
   if (isBusy || !store.activate(threadId)) {
     return;
   }
   render();
   closeSidebar();
+  await loadHistory(threadId);
+  render();
   elements.messageInput.focus();
 }
 
-function createSession() {
+async function createSession() {
   if (isBusy) {
     return;
   }
-  store.createSession();
+  if (backendReady) {
+    try {
+      store.addRemoteSession(await createRemoteSession());
+    } catch (error) {
+      console.warn("无法创建服务器会话，切换到本地演示模式。", error);
+      setBackendState(false);
+      store.createSession();
+    }
+  } else {
+    store.createSession();
+  }
   render();
   closeSidebar();
   elements.messageInput.focus();
 }
 
-function clearSession() {
+async function clearSession() {
   if (isBusy) {
     return;
+  }
+  const threadId = store.activeThreadId;
+  if (backendReady) {
+    try {
+      await resetRemoteSession(threadId);
+    } catch (error) {
+      if (error.status !== 404) {
+        console.warn("服务器会话清空失败，保留本地清空结果。", error);
+      }
+    }
   }
   store.clearActiveSession();
   render();
@@ -154,6 +204,22 @@ async function submitMessage(event) {
   }
 }
 
+async function bootstrap() {
+  try {
+    const remoteSessions = await listSessions();
+    setBackendState(true);
+    if (remoteSessions.length) {
+      store.replaceFromRemote(remoteSessions);
+      await loadHistory(store.activeThreadId);
+    }
+  } catch (error) {
+    setBackendState(false);
+    console.warn("无法连接会话 API，将使用 localStorage 演示模式。", error);
+  }
+  render();
+  elements.messageInput.focus();
+}
+
 function handleAgentEvent(eventData, threadId, assistantMessageId, assistantRow) {
   const type = eventData.type;
   if (type === "tool_call") {
@@ -194,5 +260,4 @@ elements.clearBtn.addEventListener("click", clearSession);
 elements.menuBtn.addEventListener("click", openSidebar);
 elements.sidebarBackdrop.addEventListener("click", closeSidebar);
 
-render();
-elements.messageInput.focus();
+bootstrap();

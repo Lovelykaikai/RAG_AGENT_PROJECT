@@ -14,6 +14,45 @@ class ApiError extends Error {
   }
 }
 
+async function requestJson(url, options = {}) {
+  let response;
+  try {
+    response = await fetch(url, options);
+  } catch (error) {
+    throw new ApiError("后端服务不可用", 0);
+  }
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new ApiError(data.detail || `请求失败（${response.status}）`, response.status);
+  }
+  return response.json();
+}
+
+export async function listSessions() {
+  return requestJson(API.sessions);
+}
+
+export async function createSession() {
+  return requestJson(API.sessions, { method: "POST" });
+}
+
+export async function getSessionMessages(threadId) {
+  return requestJson(API.messages(threadId));
+}
+
+export async function resetSession(threadId) {
+  return requestJson(`${API.sessions}/${encodeURIComponent(threadId)}/reset`, { method: "POST" });
+}
+
+export async function renameSession(threadId, title) {
+  return requestJson(`${API.sessions}/${encodeURIComponent(threadId)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title }),
+  });
+}
+
 async function requestChat(threadId, message) {
   let response;
   try {
