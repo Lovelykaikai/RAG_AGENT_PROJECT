@@ -3,41 +3,107 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>旅游攻略 Agent</title>
+    <meta name="theme-color" content="#f4f7f5" />
+    <title>行旅簿 | 旅游攻略 Agent</title>
     <link rel="stylesheet" href="/static/style.css" />
   </head>
   <body>
-    <main class="app-shell">
-      <section class="chat-panel" aria-label="旅游攻略对话">
-        <header class="chat-header">
-          <div>
-            <h1>旅游攻略 Agent</h1>
+    <div class="app-shell">
+      <aside class="sidebar" id="sidebar" aria-label="会话导航">
+        <div class="sidebar-brand">
+          <div class="brand-mark" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span></span>
           </div>
-          <button id="clearBtn" class="ghost-button" type="button">清空</button>
-        </header>
-
-        <div id="chatLog" class="chat-log" aria-live="polite">
-          <article class="message assistant">
-            <div class="bubble">
-              你好，我可以帮你规划中国城市旅行攻略。你可以试试输入：帮我做一份上海三日游攻略，出发地是上海虹桥站，日期是2026-08-01。若想要报告版，可以说“生成一份上海三日游旅游攻略报告”。
-            </div>
-          </article>
+          <div>
+            <p class="eyebrow">TRAVEL DESK</p>
+            <h1>行旅簿</h1>
+          </div>
         </div>
 
-        <form id="chatForm" class="composer">
-          <textarea
-            id="messageInput"
-            name="message"
-            rows="3"
-            placeholder="输入你的旅行需求..."
-            autocomplete="off"
-            required
-          ></textarea>
-          <button id="sendBtn" type="submit">发送</button>
-        </form>
-      </section>
-    </main>
+        <button class="new-session-button" id="newSessionBtn" type="button">
+          <span class="button-symbol" aria-hidden="true">+</span>
+          <span>新建会话</span>
+        </button>
 
-    <script src="/static/app.js"></script>
+        <div class="session-section">
+          <div class="section-heading">
+            <span>我的行程</span>
+            <span class="session-count" id="sessionCount">0</span>
+          </div>
+          <nav id="sessionList" class="session-list" aria-label="会话列表"></nav>
+        </div>
+
+        <div class="sidebar-footer">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span>本地演示模式</span>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <header class="workspace-header">
+          <div class="header-leading">
+            <button
+              class="icon-button mobile-only"
+              id="menuBtn"
+              type="button"
+              aria-label="打开会话导航"
+              title="打开会话导航"
+            >
+              <span aria-hidden="true">☰</span>
+            </button>
+            <div>
+              <p class="eyebrow">CURRENT ITINERARY</p>
+              <h2 id="sessionTitle">新的行程</h2>
+            </div>
+          </div>
+          <div class="header-actions">
+            <span class="connection-label">
+              <span class="status-dot" aria-hidden="true"></span>
+              <span id="connectionStatus">等待输入</span>
+            </span>
+            <button
+              class="icon-button"
+              id="clearBtn"
+              type="button"
+              aria-label="清空当前会话"
+              title="清空当前会话"
+            >
+              <span aria-hidden="true">⌫</span>
+            </button>
+          </div>
+        </header>
+
+        <section class="conversation" id="chatLog" aria-live="polite" aria-label="对话内容"></section>
+
+        <footer class="composer-area">
+          <div class="composer-wrap">
+            <form id="chatForm" class="composer">
+              <label class="sr-only" for="messageInput">输入旅行需求</label>
+              <textarea
+                id="messageInput"
+                name="message"
+                rows="1"
+                placeholder="告诉我你想去哪里，几天，和在意的事..."
+                autocomplete="off"
+                required
+              ></textarea>
+              <button id="sendBtn" class="send-button" type="submit" aria-label="发送消息" title="发送消息">
+                <span class="send-label">发送</span>
+                <span class="send-symbol" aria-hidden="true">↗</span>
+              </button>
+            </form>
+            <div class="composer-hint">
+              <span>Enter 换行</span>
+              <span>Ctrl / Cmd + Enter 发送</span>
+            </div>
+          </div>
+        </footer>
+      </main>
+    </div>
+
+    <div class="sidebar-backdrop" id="sidebarBackdrop" hidden></div>
+    <script type="module" src="/static/js/app.js"></script>
   </body>
 </html>
