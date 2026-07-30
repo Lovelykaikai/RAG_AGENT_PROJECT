@@ -13,5 +13,6 @@ dependencies = [
     "langchain-openai>=1.4.1",
     "langgraph-checkpoint-mysql[pymysql]>=3.0.0",
     "pyyaml>=6.0.3",
+    "tavily-python>=0.7.26",
     "uvicorn>=0.51.0",
 ]

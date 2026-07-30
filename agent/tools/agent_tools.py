@@ -9,7 +9,9 @@ from typing import Any
 from dotenv import load_dotenv
 from langchain_core.tools import tool
 
+from integrations.web_search import get_web_search_service
 from rag.rag_service import RagSummarizeService
+from utils.logger_handler import logger
 
 
 load_dotenv()
@@ -209,6 +211,12 @@ def search_poi(keyword: str, city: str | None = None) -> str:
         return f"暂时无法获取{city or ''}{keyword}的地图信息，建议根据RAG资料和用户偏好先做保守规划。"
 
 
+@tool(description="联网搜索最新旅游信息，如景点开放时间、临时活动、近期天气和出行提醒；返回标题、链接和摘要")
+def search_web(query: str) -> str:
+    """搜索公开网页，补充本地知识库和地图接口无法覆盖的时效性信息。"""
+    return get_web_search_service().search(query)
+
+
 @tool(description="查询城市内交通建议。用于生成旅游攻略中的市内交通、机场车站衔接和避坑提醒")
 def get_city_transport(city: str) -> str:
     """总结目的地城市的市内交通方式、景区衔接和出行注意事项。"""
@@ -340,6 +348,7 @@ TOOLS = [
     get_weather,
     get_user_location,
     search_poi,
+    search_web,
     get_city_transport,
     plan_route,
     fill_context_for_report,
