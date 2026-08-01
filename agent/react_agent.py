@@ -44,7 +44,11 @@ class ReactAgent:
         """Read the latest persisted message state for one conversation."""
         state = self.agent.get_state({"configurable": {"thread_id": thread_id}})
         messages = state.values.get("messages", []) if state else []
-        return [self._serialize_message(message) for message in messages]
+        return [
+            self._serialize_message(message)
+            for message in messages
+            if self._is_displayable_message(message)
+        ]
 
     def reset_thread(self, thread_id: str) -> None:
         """Delete all checkpoint state for one conversation."""
@@ -71,6 +75,14 @@ class ReactAgent:
             "content": str(content),
             "tool": getattr(message, "name", "") or "",
         }
+
+    @staticmethod
+    def _is_displayable_message(message: Any) -> bool:
+        """Keep user messages and final AI messages in the conversation view."""
+        message_type = getattr(message, "type", "")
+        if message_type == "human":
+            return True
+        return message_type == "ai" and not getattr(message, "tool_calls", None)
 
     def execute_stream(self, query: str, thread_id: str) -> Iterator[dict[str, Any]]:
         """返回结构化事件流，方便前端区分模型消息、工具调用和错误。"""
@@ -104,17 +116,31 @@ class ReactAgent:
                 if message_id:
                     seen_message_ids.add(message_id)
 
+                message_type = getattr(latest_message, "type", "")
+                if message_type == "human" or message_type == "system":
+                    continue
+
                 tool_calls = getattr(latest_message, "tool_calls", None)
-                if tool_calls:
+                if message_type == "ai" and tool_calls:
                     for tool_call in tool_calls:
                         yield {
                             "type": "tool_call",
                             "tool": tool_call.get("name"),
                             "args": tool_call.get("args", {}),
+                            "tool_call_id": tool_call.get("id"),
                         }
+                    continue
+
+                if message_type == "tool":
+                    yield {
+                        "type": "tool_done",
+                        "tool": getattr(latest_message, "name", "") or "旅行工具",
+                        "tool_call_id": getattr(latest_message, "tool_call_id", None),
+                    }
+                    continue
 
                 content = getattr(latest_message, "content", None)
-                if content:
+                if message_type == "ai" and content:
                     yield {
                         "type": "message",
                         "content": content.strip(),

@@ -126,6 +126,7 @@ export function toolLabel(event) {
     get_city_transport: "正在整理城市交通",
     plan_route: "正在规划路线",
     rag_summarize: "正在查阅旅行资料",
+    search_web: "正在搜索最新信息",
     fill_context_for_report: "正在准备攻略报告",
   };
   return labels[event.tool] || `正在调用 ${event.tool || "旅行工具"}`;

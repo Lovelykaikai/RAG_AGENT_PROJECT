@@ -48,6 +48,24 @@ def stream_agent_answer(message: str, thread_id: str, agent: ReactAgent) -> Iter
                 logger.info(
                     f"[api_chat]Agent调用工具: {event.get('tool')} {event.get('args', {})}"
                 )
+                yield json.dumps(
+                    {
+                        "type": "tool_call",
+                        "tool": event.get("tool"),
+                        "args": event.get("args", {}),
+                        "tool_call_id": event.get("tool_call_id"),
+                    },
+                    ensure_ascii=False,
+                ) + "\n"
+            elif event_type == "tool_done":
+                yield json.dumps(
+                    {
+                        "type": "tool_done",
+                        "tool": event.get("tool"),
+                        "tool_call_id": event.get("tool_call_id"),
+                    },
+                    ensure_ascii=False,
+                ) + "\n"
             elif event_type == "error":
                 logger.error(f"[api_chat]Agent返回错误事件: {event.get('content')}")
                 yield json.dumps(
