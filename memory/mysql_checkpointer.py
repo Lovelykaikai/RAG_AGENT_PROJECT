@@ -60,9 +60,3 @@ class MySQLCheckpointer:
             self._context_manager.__exit__(exc_type, exc_value, traceback)
         self._context_manager = None
         self.saver = None
-
-
-def create_checkpointer(connection_uri: str | None = None) -> tuple[MySQLCheckpointer, PyMySQLSaver]:
-    """Create and start a managed checkpointer for application startup."""
-    manager = MySQLCheckpointer(connection_uri=connection_uri)
-    return manager, manager.start()

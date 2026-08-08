@@ -1,3 +1,5 @@
+from functools import lru_cache
+
 from utils.config_handler import prompt_conf
 from utils.path_tool import get_abs_path
 from utils.logger_handler import logger
@@ -24,13 +26,16 @@ def _load_prompt(config_keys: tuple[str, ...], loader_name: str) -> str:
         raise
 
 
+@lru_cache(maxsize=1)
 def load_system_prompt() -> str:
     return _load_prompt(("main_prompt_path",), "load_system_prompt")
 
 
+@lru_cache(maxsize=1)
 def load_rag_prompt() -> str:
     return _load_prompt(("rag_summarize_prompt_path",), "load_rag_prompt")
 
 
+@lru_cache(maxsize=1)
 def load_report_prompt() -> str:
     return _load_prompt(("report_prompt_path",), "load_report_prompt")

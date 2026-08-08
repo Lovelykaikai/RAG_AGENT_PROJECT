@@ -12,7 +12,7 @@ from api.schemas import (
     SessionRenameRequest,
     SessionResponse,
 )
-from memory.session_store import MySQLSessionStore
+from memory.session_store import DEFAULT_SESSION_TITLE, MySQLSessionStore
 from utils.logger_handler import logger
 
 
@@ -20,19 +20,23 @@ router = APIRouter(prefix="/api", tags=["chat"])
 
 
 def get_agent(request: Request) -> ReactAgent:
+    """从 FastAPI 全局状态中获取 Agent 实例，供聊天和历史消息接口调用。"""
     return request.app.state.agent
 
 
 def get_session_store(request: Request) -> MySQLSessionStore:
+    """从 FastAPI 全局状态中获取会话存储实例，供会话接口读写 MySQL 元数据。"""
     return request.app.state.session_store
 
 
 def make_session_title(message: str) -> str:
+    """根据用户首次发送的消息生成会话标题，供前端左侧会话列表显示。"""
     title = " ".join(message.split())
     return title[:24] + ("..." if len(title) > 24 else "")
 
 
 def stream_agent_answer(message: str, thread_id: str, agent: ReactAgent) -> Iterator[str]:
+    """将 Agent 内部事件转换为前端可读取的 NDJSON 流式响应。"""
     try:
         for event in agent.execute_stream(message, thread_id):
             event_type = event.get("type")
@@ -91,17 +95,20 @@ def stream_agent_answer(message: str, thread_id: str, agent: ReactAgent) -> Iter
 
 @router.post("/sessions", response_model=SessionResponse)
 def create_session(request: Request) -> dict:
+    """创建一个新的会话，并返回前端需要保存的 thread_id 和会话元数据。"""
     thread_id = f"thread_{uuid4().hex}"
     return get_session_store(request).create(thread_id)
 
 
 @router.get("/sessions", response_model=list[SessionResponse])
 def list_sessions(request: Request) -> list[dict]:
+    """查询所有会话，供前端初始化和刷新左侧会话列表。"""
     return get_session_store(request).list()
 
 
 @router.get("/sessions/{thread_id}/messages", response_model=list[HistoryMessage])
 def get_session_messages(thread_id: str, request: Request) -> list[dict]:
+    """读取指定会话的历史消息，供前端切换会话时恢复聊天内容。"""
     session_store = get_session_store(request)
     if session_store.get(thread_id) is None:
         raise HTTPException(status_code=404, detail="会话不存在")
@@ -110,6 +117,7 @@ def get_session_messages(thread_id: str, request: Request) -> list[dict]:
 
 @router.post("/sessions/{thread_id}/reset", response_model=SessionResponse)
 def reset_session(thread_id: str, request: Request) -> dict:
+    """清除指定会话的 Agent 状态并重置会话元数据，供前端执行清空会话操作。"""
     session_store = get_session_store(request)
     if session_store.get(thread_id) is None:
         raise HTTPException(status_code=404, detail="会话不存在")
@@ -123,6 +131,7 @@ def rename_session(
     payload: SessionRenameRequest,
     request: Request,
 ) -> dict:
+    """修改会话标题，并将更新后的会话信息返回给前端。"""
     session = get_session_store(request).rename(thread_id, payload.title.strip())
     if session is None:
         raise HTTPException(status_code=404, detail="会话不存在")
@@ -131,6 +140,7 @@ def rename_session(
 
 @router.post("/chat")
 def chat(payload: ChatRequest, http_request: Request) -> StreamingResponse:
+    """接收前端聊天请求，更新会话元数据，并将 Agent 输出以 NDJSON 流返回前端。"""
     message = payload.message.strip()
     thread_id = payload.thread_id.strip()
     if not message:
@@ -142,7 +152,7 @@ def chat(payload: ChatRequest, http_request: Request) -> StreamingResponse:
     session = session_store.get(thread_id)
     if session is None:
         session_store.create(thread_id, make_session_title(message))
-    elif session["title"] == "新的行程":
+    elif session["title"] == DEFAULT_SESSION_TITLE:
         session_store.rename(thread_id, make_session_title(message))
     else:
         session_store.touch(thread_id)

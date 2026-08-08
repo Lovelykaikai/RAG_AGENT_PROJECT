@@ -9,3 +9,6 @@ logs/
 .env
 .env.*
 !.env.example
+
+# 已废弃：去重改为读取 Chroma 里的 file_md5 metadata
+md5.text

@@ -12,6 +12,11 @@ from dotenv import load_dotenv
 from utils.path_tool import get_abs_path
 
 
+# 新建或重置会话时使用的默认标题。routers.py 依赖它判断是否要用首条消息覆盖标题，
+# 修改时两边会同步，不要在其他地方硬编码这个字符串。
+DEFAULT_SESSION_TITLE = "新的行程"
+
+
 class MySQLSessionStore:
     """Store session metadata separately from LangGraph checkpoint messages."""
 
@@ -64,7 +69,7 @@ class MySQLSessionStore:
                     """
                 )
 
-    def create(self, thread_id: str, title: str = "新的行程") -> dict[str, Any]:
+    def create(self, thread_id: str, title: str = DEFAULT_SESSION_TITLE) -> dict[str, Any]:
         now = self._now()
         with self._connection() as connection:
             with connection.cursor() as cursor:
@@ -133,7 +138,7 @@ class MySQLSessionStore:
                     SET title = %s, updated_at = %s
                     WHERE thread_id = %s
                     """,
-                    ("新的行程", self._now(), thread_id),
+                    (DEFAULT_SESSION_TITLE, self._now(), thread_id),
                 )
         return self.get(thread_id)
 

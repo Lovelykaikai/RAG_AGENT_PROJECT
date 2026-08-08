@@ -110,11 +110,82 @@ def _format_duration(seconds_text: str | int | None) -> str:
 
 
 def _fallback_weather(city: str, date: str | None) -> str:
-    date_part = f"{date} " if date else ""
+    date_part = f"{date}的" if date else ""
     return (
-        f"暂时无法获取{city}{date_part}实时天气。建议按常规季节规划，并在出发前再次确认天气；"
+        f"暂时无法获取{city}{date_part}天气预报。建议按常规季节规划，并在出发前再次确认天气；"
         "若遇到降雨、高温、大风或台风预警，应优先安排室内景点、商圈、博物馆和餐饮体验。"
     )
+
+
+_WEEKDAY_NAMES = {
+    "1": "周一",
+    "2": "周二",
+    "3": "周三",
+    "4": "周四",
+    "5": "周五",
+    "6": "周六",
+    "7": "周日",
+}
+
+_RAIN_KEYWORDS = ("雨", "雪", "冰雹", "雷")
+
+
+def _format_cast(cast: dict[str, Any]) -> str:
+    """把高德单日预报格式化成一行中文描述。"""
+    date_text = cast.get("date", "")  # 高德预报字段：预报日期YYYY-MM-DD
+    weekday = _WEEKDAY_NAMES.get(str(cast.get("week", "")), "")  # 高德预报字段：星期1-7
+    return (
+        f"{date_text} {weekday} "
+        f"白天{cast.get('dayweather', '未知')}{cast.get('daytemp', '未知')}℃ / "  # 高德预报字段：白天天气与温度
+        f"夜间{cast.get('nightweather', '未知')}{cast.get('nighttemp', '未知')}℃，"  # 高德预报字段：夜间天气与温度
+        f"{cast.get('daywind', '未知')}风{cast.get('daypower', '未知')}级"  # 高德预报字段：白天风向与风力
+    ).strip()
+
+
+def _format_cast_brief(cast: dict[str, Any]) -> str:
+    """把高德单日预报压缩成一段短描述，用于罗列其余可选日期。"""
+    date_text = str(cast.get("date", ""))[5:] or str(cast.get("date", ""))
+    return f"{date_text} {cast.get('dayweather', '未知')}{cast.get('daytemp', '未知')}℃"
+
+
+def _weather_advice(cast: dict[str, Any]) -> str:
+    """根据单日预报给出室内外安排建议，避免模型自行编造结论。"""
+    day_weather = str(cast.get("dayweather", ""))
+    night_weather = str(cast.get("nightweather", ""))
+    weather_text = f"{day_weather}{night_weather}"
+
+    if any(keyword in weather_text for keyword in _RAIN_KEYWORDS):
+        return "该日有降水，建议优先安排博物馆、商圈等室内项目，并准备雨具。"
+
+    try:
+        day_temp = int(float(cast.get("daytemp", "")))
+    except (TypeError, ValueError):
+        return "该日无明显降水，可正常安排室外行程。"
+
+    if day_temp >= 33:
+        return "该日白天高温，建议避开正午户外活动，做好防晒补水。"
+    if day_temp <= 5:
+        return "该日气温偏低，建议做好保暖并缩短户外停留时间。"
+    return "该日无明显降水，气温适宜，适合安排室外行程。"
+
+
+def _fetch_forecast(city: str) -> tuple[list[dict[str, Any]], str]:
+    """请求高德预报天气，返回未来数日预报列表和数据发布时间。"""
+    city_info = _geocode(city)
+    weather_data = _request_amap(
+        "/v3/weather/weatherInfo",
+        {
+            "city": city_info["adcode"],  # 高德天气入参：城市adcode
+            "extensions": "all",  # 高德天气入参：all为预报天气（今天+未来3天）
+        },
+    )
+    forecasts = weather_data.get("forecasts") or []  # 高德天气返回字段：预报天气列表
+    if not forecasts:
+        return [], ""
+
+    first = forecasts[0]
+    casts = first.get("casts") or []  # 高德预报字段：逐日预报数组
+    return casts, first.get("reporttime", "")  # 高德预报字段：数据发布时间
 
 
 @tool(description="从本地向量库中检索并总结旅游攻略参考资料，入参为用户问题或检索关键词")
@@ -130,34 +201,66 @@ def rag_summarize(query: str) -> str:
         )
 
 
-@tool(description="获取指定中国城市的天气信息。date必须使用YYYY-MM-DD格式，可为空；返回简洁中文字符串")
+@tool(
+    description=(
+        "获取指定中国城市的天气预报，覆盖今天及未来3天。"
+        "date可为空，为空时返回全部可查日期，便于挑选适合出行的时段；"
+        "date必须使用YYYY-MM-DD格式，超出预报范围时会明确说明无法提供该日天气"
+    )
+)
 def get_weather(city: str, date: str | None = None) -> str:
-    """获取目的地城市天气，用于判断行程是否需要避雨、防晒或调整室内外安排。"""
+    """获取目的地城市天气预报，用于判断行程是否需要避雨、防晒或调整室内外安排。"""
     try:
         normalized_date = _validate_date(date)
-        city_info = _geocode(city)
-        weather_data = _request_amap(
-            "/v3/weather/weatherInfo",
-            {
-                "city": city_info["adcode"],  # 高德天气入参：城市adcode
-                "extensions": "base",  # 高德天气入参：base为实况天气
-            },
-        )
-        lives = weather_data.get("lives") or []  # 高德天气返回字段：实况天气列表
-        if not lives:
-            return _fallback_weather(city, normalized_date)
+    except ValueError:
+        return f"日期格式不正确：{date}。请使用YYYY-MM-DD格式，例如2026-08-10。"
 
-        live = lives[0]
-        date_part = f"{normalized_date}计划出行，" if normalized_date else ""
-        return (
-            f"{date_part}{city}当前天气：{live.get('weather', '未知')}，"  # 高德字段：weather天气现象
-            f"气温{live.get('temperature', '未知')}℃，"  # 高德字段：temperature实时气温
-            f"{live.get('winddirection', '未知')}风{live.get('windpower', '未知')}级，"  # 高德字段：风向/风力
-            f"湿度{live.get('humidity', '未知')}%。"  # 高德字段：humidity空气湿度
-            "天气预报可能变化，建议出发前再次确认。"
-        )
-    except Exception:
-        return _fallback_weather(city, date)
+    try:
+        casts, report_time = _fetch_forecast(city)
+    except Exception as exc:
+        logger.warning(f"[get_weather]获取{city}天气预报失败: {str(exc)}")
+        return _fallback_weather(city, normalized_date)
+
+    if not casts:
+        logger.warning(f"[get_weather]高德未返回{city}的预报数据")
+        return _fallback_weather(city, normalized_date)
+
+    available_dates = [str(cast.get("date", "")) for cast in casts]
+    report_part = f"（数据发布于{report_time}）" if report_time else ""
+    tail = "预报每天更新3次，出发前请再次确认。"
+
+    # 未指定日期：返回全部可查日期，供模型挑选天气较好的时段。
+    if normalized_date is None:
+        lines = [f"{city}未来天气预报{report_part}："]
+        lines.extend(f"  {_format_cast(cast)}" for cast in casts)
+        lines.append(f"  {tail}")
+        return "\n".join(lines)
+
+    matched = next(
+        (cast for cast in casts if str(cast.get("date", "")) == normalized_date),
+        None,
+    )
+
+    # 指定日期超出预报范围：明确说明无法提供，避免模型编造确定性结论。
+    if matched is None:
+        range_text = f"{available_dates[0]}至{available_dates[-1]}" if available_dates else "暂无"
+        lines = [
+            f"{normalized_date}超出高德预报范围（仅覆盖{range_text}），"
+            "无法提供该日实际天气，请勿据此给出确定性结论，并提醒用户临近出发时再查询。",
+            f"可参考的近期天气趋势{report_part}：",
+        ]
+        lines.extend(f"  {_format_cast(cast)}" for cast in casts)
+        return "\n".join(lines)
+
+    others = [cast for cast in casts if cast is not matched]
+    lines = [
+        f"【{_format_cast(matched)}】{report_part}",
+        f"  {_weather_advice(matched)}",
+    ]
+    if others:
+        lines.append("  其余可查日期：" + " / ".join(_format_cast_brief(cast) for cast in others))
+    lines.append(f"  {tail}")
+    return "\n".join(lines)
 
 
 @tool(description="获取用户起始位置。优先使用用户输入位置；其次使用浏览器传入的经纬度；都没有则返回目的地核心区域兜底")
@@ -207,14 +310,19 @@ def search_poi(keyword: str, city: str | None = None) -> str:
             lines.append(f"- {name}：{district}，{address}，坐标 {location}")
 
         return "\n".join(lines)
-    except Exception:
+    except Exception as exc:
+        logger.warning(f"[search_poi]查询{city or ''}{keyword}的POI失败: {str(exc)}")
         return f"暂时无法获取{city or ''}{keyword}的地图信息，建议根据RAG资料和用户偏好先做保守规划。"
 
 
 @tool(description="联网搜索最新旅游信息，如景点开放时间、临时活动、近期天气和出行提醒；返回标题、链接和摘要")
 def search_web(query: str) -> str:
     """搜索公开网页，补充本地知识库和地图接口无法覆盖的时效性信息。"""
-    return get_web_search_service().search(query)
+    try:
+        return get_web_search_service().search(query)
+    except Exception as exc:
+        logger.warning(f"[search_web]联网搜索“{query}”失败: {str(exc)}")
+        return "当前联网搜索暂时不可用，请基于已有资料和常规旅游规划原则提供保守建议。"
 
 
 @tool(description="查询城市内交通建议。用于生成旅游攻略中的市内交通、机场车站衔接和避坑提醒")
@@ -225,8 +333,9 @@ def get_city_transport(city: str) -> str:
         summary = _get_rag_service().rag_summarize(query)
         if summary:
             return summary
-    except Exception:
-        pass
+        logger.warning(f"[get_city_transport]本地知识库未返回{city}的交通资料")
+    except Exception as exc:
+        logger.warning(f"[get_city_transport]检索{city}交通资料失败: {str(exc)}")
 
     return (
         f"{city}市内旅行建议优先使用地铁、公交、步行和必要时打车的混合方式。"
@@ -245,7 +354,8 @@ def plan_route(
     try:
         origin_geo = _geocode(origin, city)
         destination_geo = _geocode(destination, city)
-    except Exception:
+    except Exception as exc:
+        logger.warning(f"[plan_route]解析地点失败 {origin} -> {destination}: {str(exc)}")
         return (
             f"暂时无法解析起点或终点：{origin} -> {destination}。"
             "建议用户补充更具体的地址、景点名称或城市名称。"
@@ -341,6 +451,24 @@ def plan_route(
 def fill_context_for_report() -> str:
     """标记当前对话进入报告生成场景，后续模型调用会切换为报告提示词。"""
     return "fill_context_for_report已调用"
+
+
+def warmup_services() -> None:
+    """启动时预热RAG和联网搜索单例，避免首个用户请求承担初始化延迟。
+
+    预热失败不阻断启动：两个工具内部都有降级分支，运行时会再尝试初始化。
+    """
+    try:
+        _get_rag_service()
+        logger.info("[warmup]RAG服务预热完成")
+    except Exception as exc:
+        logger.warning(f"[warmup]RAG服务预热失败，将在首次调用时重试: {str(exc)}")
+
+    try:
+        get_web_search_service()
+        logger.info("[warmup]联网搜索服务预热完成")
+    except Exception as exc:
+        logger.warning(f"[warmup]联网搜索服务预热失败，将在首次调用时重试: {str(exc)}")
 
 
 TOOLS = [
