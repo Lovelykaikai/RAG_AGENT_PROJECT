@@ -11,6 +11,39 @@ function scrollToBottom(container) {
   container.scrollTop = container.scrollHeight;
 }
 
+function renderMarkdown(markdown) {
+  if (!markdown || typeof markdown !== "string") {
+    return "";
+  }
+
+  // marked 和 DOMPurify 通过 <script> 标签全局引入
+  if (typeof marked === "undefined" || typeof DOMPurify === "undefined") {
+    console.warn("Markdown 渲染库未加载，回退到纯文本显示");
+    return markdown;
+  }
+
+  try {
+    const rawHtml = marked.parse(markdown, {
+      breaks: true,        // 单换行转 <br>
+      gfm: true,           // GitHub Flavored Markdown（表格、删除线等）
+    });
+    return DOMPurify.sanitize(rawHtml, {
+      ALLOWED_TAGS: [
+        "p", "br", "strong", "em", "u", "s", "code", "pre",
+        "h1", "h2", "h3", "h4", "h5", "h6",
+        "ul", "ol", "li",
+        "blockquote",
+        "table", "thead", "tbody", "tr", "th", "td",
+        "a", "img",
+      ],
+      ALLOWED_ATTR: ["href", "src", "alt", "title", "class"],
+    });
+  } catch (error) {
+    console.error("Markdown 渲染失败:", error);
+    return markdown;
+  }
+}
+
 export function renderSessions(container, sessions, activeThreadId, onSelect) {
   container.replaceChildren();
 
@@ -61,9 +94,17 @@ export function appendMessage(container, role, content, messageId = "", isError 
   }
 
   const contentWrap = makeElement("div", "message-content");
+  const bubble = makeElement("div", "message-bubble");
+
+  if (role === "user") {
+    bubble.textContent = content;
+  } else {
+    bubble.innerHTML = renderMarkdown(content);
+  }
+
   contentWrap.append(
     makeElement("div", "message-label", role === "user" ? "YOU" : "TRAVEL DESK"),
-    makeElement("div", "message-bubble", content),
+    bubble,
   );
   row.append(contentWrap);
   container.append(row);
@@ -92,7 +133,14 @@ export function appendToolEvent(container, label, isComplete = false) {
 export function updateMessage(row, content, isError = false) {
   row.classList.toggle("is-error", isError);
   const bubble = row.querySelector(".message-bubble");
-  bubble.textContent = content;
+
+  // Assistant 消息渲染 Markdown，用户消息和错误消息用纯文本
+  if (row.classList.contains("user") || isError) {
+    bubble.textContent = content;
+  } else {
+    bubble.innerHTML = renderMarkdown(content);
+  }
+
   return bubble;
 }
 
@@ -102,7 +150,19 @@ export function appendMessageText(row, content) {
     bubble.textContent = "";
     row.dataset.started = "true";
   }
-  bubble.textContent += content;
+
+  // 流式输出时先累加纯文本，避免每个 chunk 都重新解析 Markdown
+  const currentText = bubble.dataset.rawContent || "";
+  const newText = currentText + content;
+  bubble.dataset.rawContent = newText;
+
+  // 渲染 Markdown（assistant 消息）
+  if (!row.classList.contains("user")) {
+    bubble.innerHTML = renderMarkdown(newText);
+  } else {
+    bubble.textContent = newText;
+  }
+
   return bubble;
 }
 
