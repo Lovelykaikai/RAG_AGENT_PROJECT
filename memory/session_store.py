@@ -142,6 +142,16 @@ class MySQLSessionStore:
                 )
         return self.get(thread_id)
 
+    def delete(self, thread_id: str) -> bool:
+        """Delete a session from the database. Returns True if deleted, False if not found."""
+        with self._connection() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "DELETE FROM chat_sessions WHERE thread_id = %s",
+                    (thread_id,),
+                )
+                return cursor.rowcount > 0
+
     @staticmethod
     def _now() -> datetime:
         return datetime.now(timezone.utc).replace(tzinfo=None)

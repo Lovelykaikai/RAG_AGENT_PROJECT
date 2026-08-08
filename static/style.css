@@ -249,6 +249,10 @@ textarea:focus-visible {
   color: var(--ink);
 }
 
+.session-item:hover .session-actions {
+  opacity: 1;
+}
+
 .session-item.is-active {
   border-color: rgba(18, 100, 93, 0.26);
   background: var(--mist);
@@ -271,7 +275,43 @@ textarea:focus-visible {
 
 .session-copy {
   min-width: 0;
+  flex: 1;
   display: block;
+}
+
+.session-actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+.session-action-btn {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--paper-strong);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  transition: all 160ms ease;
+}
+
+.session-action-btn:hover {
+  border-color: var(--forest);
+  background: var(--mist);
+  color: var(--forest-dark);
+}
+
+.session-action-btn:last-child:hover {
+  border-color: var(--coral);
+  background: rgba(234, 115, 93, 0.08);
+  color: var(--coral);
 }
 
 .session-name,

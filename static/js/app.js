@@ -4,6 +4,8 @@ import {
   listSessions,
   resetSession as resetRemoteSession,
   streamChat,
+  deleteSession as deleteRemoteSession,
+  renameSession as renameRemoteSession,
 } from "./api-client.js";
 import { SessionStore } from "./state.js";
 import {
@@ -82,7 +84,18 @@ async function loadHistory(threadId) {
   }
 }
 
-async function activateSession(threadId) {
+async function activateSession(threadId, action) {
+  // 处理重命名和删除操作
+  if (action === "rename") {
+    await handleRenameSession(threadId);
+    return;
+  }
+  if (action === "delete") {
+    await handleDeleteSession(threadId);
+    return;
+  }
+
+  // 正常的会话切换
   if (isBusy || !store.activate(threadId)) {
     return;
   }
@@ -128,6 +141,64 @@ async function clearSession() {
     }
   }
   store.clearActiveSession();
+  render();
+  elements.messageInput.focus();
+}
+
+async function handleRenameSession(threadId) {
+  const session = store.sessions.find((s) => s.threadId === threadId);
+  if (!session) {
+    return;
+  }
+
+  const newTitle = prompt("输入新的会话名称：", session.title);
+  if (!newTitle || newTitle.trim() === "") {
+    return;
+  }
+
+  const trimmedTitle = newTitle.trim();
+  if (trimmedTitle === session.title) {
+    return;
+  }
+
+  // 更新本地状态
+  store.renameSession(threadId, trimmedTitle);
+
+  // 同步到后端
+  if (backendReady) {
+    try {
+      await renameRemoteSession(threadId, trimmedTitle);
+    } catch (error) {
+      console.warn("后端重命名失败，保留本地修改。", error);
+    }
+  }
+
+  render();
+}
+
+async function handleDeleteSession(threadId) {
+  const session = store.sessions.find((s) => s.threadId === threadId);
+  if (!session) {
+    return;
+  }
+
+  if (!confirm(`确定删除会话「${session.title}」吗？此操作无法撤销。`)) {
+    return;
+  }
+
+  // 先从后端删除
+  if (backendReady) {
+    try {
+      await deleteRemoteSession(threadId);
+    } catch (error) {
+      if (error.status !== 404) {
+        console.warn("后端删除失败，仍将从本地移除。", error);
+      }
+    }
+  }
+
+  // 删除本地会话
+  store.deleteSession(threadId);
   render();
   elements.messageInput.focus();
 }

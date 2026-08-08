@@ -188,11 +188,18 @@ def _fetch_forecast(city: str) -> tuple[list[dict[str, Any]], str]:
     return casts, first.get("reporttime", "")  # 高德预报字段：数据发布时间
 
 
-@tool(description="从本地向量库中检索并总结旅游攻略参考资料，入参为用户问题或检索关键词")
-def rag_summarize(query: str) -> str:
+@tool(
+    description=(
+        "从本地向量库中检索并总结旅游攻略参考资料。"
+        "query为用户问题或检索关键词；"
+        "city为该问题针对的单个城市名（如'成都'），只查一个城市时必须填写，"
+        "可显著提高资料准确度；跨城市比较或问题不限定城市时留空"
+    )
+)
+def rag_summarize(query: str, city: str | None = None) -> str:
     """检索本地旅游知识库，并把相关资料总结成攻略参考。"""
     try:
-        return _get_rag_service().rag_summarize(query)
+        return _get_rag_service().rag_summarize(query, city)
     except Exception as exc:
         logger.error(f"[rag_summarize]检索本地知识库失败: {str(exc)}", exc_info=True)
         return (

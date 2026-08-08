@@ -4,6 +4,7 @@
 from langchain_core.documents import Document
 
 from rag.vector_store import VectorStoreService
+from utils.logger_handler import logger
 from utils.prompt_loader import load_rag_prompt
 from langchain_core.prompts import PromptTemplate
 from model.factory import chat_model
@@ -22,12 +23,21 @@ class RagSummarizeService(object):
         chain = self.prompt_template | self.model | StrOutputParser()
         return chain
 
-    def retriever_docs(self, query:str) -> list[Document]:
-        return self.retriever.invoke(query)
+    def retriever_docs(self, query: str, city: str | None = None) -> list[Document]:
+        """按 city 过滤检索；city 为空或不在库中时退回全库检索。"""
+        if not city:
+            return self.retriever.invoke(query)
 
-    def rag_summarize(self, query:str) -> str:
+        # 传进来的城市名可能是模型猜的，库里没有就别过滤，否则会召回 0 条。
+        if city not in self.vector_store.known_cities():
+            logger.info(f"[rag]知识库没有{city}的资料，改为全库检索")
+            return self.retriever.invoke(query)
 
-        context_docs = self.retriever_docs(query)
+        return self.vector_store.get_retriever(city).invoke(query)
+
+    def rag_summarize(self, query: str, city: str | None = None) -> str:
+
+        context_docs = self.retriever_docs(query, city)
 
         context = ""
         counter = 0

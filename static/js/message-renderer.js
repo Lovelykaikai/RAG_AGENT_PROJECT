@@ -58,7 +58,31 @@ export function renderSessions(container, sessions, activeThreadId, onSelect) {
       makeElement("span", "session-name", session.title),
       makeElement("span", "session-meta", formatSessionTime(session.updatedAt)),
     );
-    button.append(copy);
+
+    const actions = makeElement("span", "session-actions");
+
+    const renameBtn = makeElement("button", "session-action-btn");
+    renameBtn.type = "button";
+    renameBtn.innerHTML = "✎";
+    renameBtn.title = "重命名";
+    renameBtn.setAttribute("aria-label", "重命名会话");
+    renameBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      onSelect(session.threadId, "rename");
+    });
+
+    const deleteBtn = makeElement("button", "session-action-btn");
+    deleteBtn.type = "button";
+    deleteBtn.innerHTML = "×";
+    deleteBtn.title = "删除";
+    deleteBtn.setAttribute("aria-label", "删除会话");
+    deleteBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      onSelect(session.threadId, "delete");
+    });
+
+    actions.append(renameBtn, deleteBtn);
+    button.append(copy, actions);
     button.addEventListener("click", () => onSelect(session.threadId));
     container.append(button);
   });

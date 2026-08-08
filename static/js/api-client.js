@@ -53,6 +53,16 @@ export async function renameSession(threadId, title) {
   });
 }
 
+export async function deleteSession(threadId) {
+  const response = await fetch(`${API.sessions}/${encodeURIComponent(threadId)}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new ApiError(data.detail || `删除会话失败（${response.status}）`, response.status);
+  }
+}
+
 async function requestChat(threadId, message) {
   let response;
   try {

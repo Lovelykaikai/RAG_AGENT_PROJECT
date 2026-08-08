@@ -65,8 +65,25 @@ class VectorStoreService:
             length_function=len,
         )
 
-    def get_retriever(self):
-        return self.vector_store.as_retriever(search_kwargs={"k": chroma_conf["k"]})
+    def get_retriever(self, city: str | None = None):
+        """构造检索器。
+
+        传入 city 时只召回该城市的切片，避免各城市攻略措辞相近导致的串味；
+        不传时检索全库，用于跨城市或与城市无关的问题。
+        """
+        search_kwargs: dict = {"k": chroma_conf["k"]}
+        if city:
+            search_kwargs["filter"] = {"city": city}
+        return self.vector_store.as_retriever(search_kwargs=search_kwargs)
+
+    def known_cities(self) -> list[str]:
+        """列出库里已有 city 标签的城市，用于校验调用方传来的城市名。"""
+        try:
+            metadatas = self.vector_store.get(include=["metadatas"]).get("metadatas") or []
+        except Exception as e:
+            logger.warning(f"[知识库]读取城市列表失败: {str(e)}")
+            return []
+        return sorted({m["city"] for m in metadatas if m and m.get("city")})
 
     def _split_by_city_section(self, text: str, source: str) -> list[Document]:
         """按 '## ' 标题把文档切成城市小节，并给每个切片打上 city 标签。

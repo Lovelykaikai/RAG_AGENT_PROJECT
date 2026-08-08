@@ -138,6 +138,20 @@ def rename_session(
     return session
 
 
+@router.delete("/sessions/{thread_id}", status_code=204)
+def delete_session(thread_id: str, request: Request) -> None:
+    """删除指定会话的元数据和 Agent 历史记录。"""
+    session_store = get_session_store(request)
+    agent = get_agent(request)
+
+    # 先删除 LangGraph checkpoint 历史
+    agent.reset_thread(thread_id)
+
+    # 再删除会话元数据
+    if not session_store.delete(thread_id):
+        raise HTTPException(status_code=404, detail="会话不存在")
+
+
 @router.post("/chat")
 def chat(payload: ChatRequest, http_request: Request) -> StreamingResponse:
     """接收前端聊天请求，更新会话元数据，并将 Agent 输出以 NDJSON 流返回前端。"""

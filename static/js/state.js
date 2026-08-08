@@ -219,6 +219,40 @@ export class SessionStore {
     this.persist();
     return session;
   }
+
+  deleteSession(threadId) {
+    const index = this.data.sessions.findIndex((session) => session.threadId === threadId);
+    if (index === -1) {
+      return false;
+    }
+
+    this.data.sessions.splice(index, 1);
+
+    // 如果删除的是当前激活的会话，切换到第一个会话或创建新会话
+    if (this.data.activeThreadId === threadId) {
+      if (this.data.sessions.length > 0) {
+        this.data.activeThreadId = this.data.sessions[0].threadId;
+      } else {
+        const newSession = makeSession();
+        this.data.sessions.push(newSession);
+        this.data.activeThreadId = newSession.threadId;
+      }
+    }
+
+    this.persist();
+    return true;
+  }
+
+  renameSession(threadId, newTitle) {
+    const session = this.data.sessions.find((item) => item.threadId === threadId);
+    if (!session) {
+      return false;
+    }
+    session.title = newTitle;
+    session.updatedAt = new Date().toISOString();
+    this.persist();
+    return true;
+  }
 }
 
 export { STORAGE_KEY };
