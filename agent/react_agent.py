@@ -99,13 +99,23 @@ class ReactAgent:
         seen_message_ids: set[str] = set()
 
         try:
-            for chunk in self.agent.stream(
+            for mode, payload in self.agent.stream(
                 input_dict,
                 config=config,
-                stream_mode="values",
+                stream_mode=["values", "messages"],
                 context={"report": False},
             ):
-                messages = chunk.get("messages", [])
+                if mode == "messages":
+                    message_chunk, _metadata = payload
+                    content = getattr(message_chunk, "content", None)
+                    if content:
+                        yield {
+                            "type": "message",
+                            "content": content,
+                        }
+                    continue
+
+                messages = payload.get("messages", [])
                 if not messages:
                     continue
 
@@ -139,12 +149,7 @@ class ReactAgent:
                     }
                     continue
 
-                content = getattr(latest_message, "content", None)
-                if message_type == "ai" and content:
-                    yield {
-                        "type": "message",
-                        "content": content.strip(),
-                    }
+                # AI 消息内容已经通过 messages 流逐 token 发送，这里不再重复发送完整内容
         except Exception as e:
             logger.error(f"[ReactAgent]执行失败: {str(e)}", exc_info=True)
             yield {
@@ -157,7 +162,7 @@ class ReactAgent:
         for event in self.execute_stream(query, thread_id):
             event_type = event.get("type")
             if event_type == "message":
-                yield event["content"] + "\n"
+                yield event["content"]
             elif event_type == "tool_call":
                 yield f"[调用工具] {event.get('tool')} {event.get('args', {})}\n"
             elif event_type == "error":

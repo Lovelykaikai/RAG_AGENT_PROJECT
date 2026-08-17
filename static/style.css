@@ -553,7 +553,6 @@ textarea:focus-visible {
   font-size: 14px;
   line-height: 1.8;
   overflow-wrap: anywhere;
-  white-space: pre-wrap;
 }
 
 /* Markdown 渲染样式 */
@@ -692,6 +691,7 @@ textarea:focus-visible {
   border-radius: 12px 3px 12px 12px;
   background: var(--forest);
   color: #fff;
+  white-space: pre-wrap;
 }
 
 .message-row.user .message-label {
@@ -702,6 +702,7 @@ textarea:focus-visible {
   border-color: rgba(234, 115, 93, 0.36);
   background: #fff7f4;
   color: #9d4434;
+  white-space: pre-wrap;
 }
 
 .tool-event {

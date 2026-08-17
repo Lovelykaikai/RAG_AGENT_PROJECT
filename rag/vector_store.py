@@ -64,6 +64,7 @@ class VectorStoreService:
             separators=chroma_conf["separators"],
             length_function=len,
         )
+        self._known_cities_cache: list[str] | None = None
 
     def get_retriever(self, city: str | None = None):
         """构造检索器。
@@ -78,12 +79,15 @@ class VectorStoreService:
 
     def known_cities(self) -> list[str]:
         """列出库里已有 city 标签的城市，用于校验调用方传来的城市名。"""
+        if self._known_cities_cache is not None:
+            return self._known_cities_cache
         try:
             metadatas = self.vector_store.get(include=["metadatas"]).get("metadatas") or []
         except Exception as e:
             logger.warning(f"[知识库]读取城市列表失败: {str(e)}")
             return []
-        return sorted({m["city"] for m in metadatas if m and m.get("city")})
+        self._known_cities_cache = sorted({m["city"] for m in metadatas if m and m.get("city")})
+        return self._known_cities_cache
 
     def _split_by_city_section(self, text: str, source: str) -> list[Document]:
         """按 '## ' 标题把文档切成城市小节，并给每个切片打上 city 标签。
@@ -188,6 +192,7 @@ class VectorStoreService:
                     split_document,
                     ids=[f"{md5_hex}:{index}" for index in range(len(split_document))],
                 )
+                self._known_cities_cache = None
 
                 cities = sorted({doc.metadata["city"] for doc in split_document if "city" in doc.metadata})
                 logger.info(
