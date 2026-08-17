@@ -52,6 +52,10 @@ class RagSummarizeService(object):
             }
         )
 
+    def summarize_text(self, query: str, context: str) -> str:
+        """对外部参考文本（如联网搜索结果）做同样风格的总结，不经过向量检索。"""
+        return self.chain.invoke({"input": query, "context": context})
+
 if __name__ == '__main__':
     rag = RagSummarizeService()
 

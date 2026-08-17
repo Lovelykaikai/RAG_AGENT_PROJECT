@@ -2,6 +2,7 @@ import json
 import os
 import urllib.parse
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from threading import Lock
 from typing import Any
@@ -32,6 +33,32 @@ def _get_rag_service() -> RagSummarizeService:
         if _rag_service is None:
             _rag_service = RagSummarizeService()
         return _rag_service
+
+
+_SEARCH_RESULT_PREFIX = "联网搜索结果："  # 与 WebSearchService._format_results 的开头保持一致
+
+
+def _search_fallback(query: str, city: str | None = None) -> str:
+    """本地知识库不可用时，用联网搜索结果作为参考资料，经模型总结后再返回，避免照搬原文。"""
+    search_query = f"{city} {query}" if city else query
+    try:
+        raw_results = get_web_search_service().search(search_query)
+    except Exception as exc:
+        logger.warning(f"[rag_fallback]联网搜索兜底失败: {str(exc)}")
+        return (
+            f"暂时没有{city or ''}相关的参考资料，请基于已有对话信息和常规旅游规划原则生成保守建议，"
+            "并提醒用户出发前再次确认细节。"
+        )
+
+    # 没有命中有效结果时，raw_results 本身就是一句可直接展示的说明文字，无需再总结
+    if not raw_results.startswith(_SEARCH_RESULT_PREFIX):
+        return raw_results
+
+    try:
+        return _get_rag_service().summarize_text(query, raw_results)
+    except Exception as exc:
+        logger.warning(f"[rag_fallback]总结联网搜索结果失败: {str(exc)}")
+        return raw_results
 
 
 def _get_amap_key() -> str | None:
@@ -202,10 +229,7 @@ def rag_summarize(query: str, city: str | None = None) -> str:
         return _get_rag_service().rag_summarize(query, city)
     except Exception as exc:
         logger.error(f"[rag_summarize]检索本地知识库失败: {str(exc)}", exc_info=True)
-        return (
-            "暂时无法读取本地旅游知识库。请基于已有对话信息和常规旅游规划原则生成保守攻略，"
-            "并提醒用户部分景点、天气、交通和开放信息需要出发前再次确认。"
-        )
+        return _search_fallback(query, city)
 
 
 @tool(
@@ -344,10 +368,73 @@ def get_city_transport(city: str) -> str:
     except Exception as exc:
         logger.warning(f"[get_city_transport]检索{city}交通资料失败: {str(exc)}")
 
-    return (
-        f"{city}市内旅行建议优先使用地铁、公交、步行和必要时打车的混合方式。"
-        "景点距离较远时优先选择耗时较短且换乘较少的路线；早晚高峰、节假日和热门景区周边应预留排队与拥堵时间。"
-    )
+    return _search_fallback(query)
+
+
+def _query_transit(
+    origin_location: str,
+    destination_location: str,
+    city: str | None,
+    origin_adcode: str,
+    destination_adcode: str,
+) -> tuple[str, int, str] | None:
+    try:
+        transit_data = _request_amap(
+            "/v3/direction/transit/integrated",
+            {
+                "origin": origin_location,  # 高德公交路径入参：起点经纬度
+                "destination": destination_location,  # 高德公交路径入参：终点经纬度
+                "city": city or origin_adcode,  # 高德公交路径入参：起点城市
+                "cityd": city or destination_adcode,  # 高德公交路径入参：终点城市
+                "strategy": 0,  # 高德公交路径入参：推荐策略
+            },
+        )
+        transits = (transit_data.get("route") or {}).get("transits") or []  # 高德公交路径返回字段：公交方案
+        if not transits:
+            return None
+        duration = int(float(transits[0].get("duration", 0)))  # 高德路径字段：耗时，单位秒
+        return "公共交通", duration, f"预计耗时{_format_duration(duration)}"
+    except Exception:
+        return None
+
+
+def _query_driving(origin_location: str, destination_location: str) -> tuple[str, int, str] | None:
+    try:
+        driving_data = _request_amap(
+            "/v3/direction/driving",
+            {
+                "origin": origin_location,  # 高德驾车路径入参：起点经纬度
+                "destination": destination_location,  # 高德驾车路径入参：终点经纬度
+                "strategy": 10,  # 高德驾车路径入参：返回速度优先方案
+            },
+        )
+        paths = (driving_data.get("route") or {}).get("paths") or []  # 高德驾车路径返回字段：路线列表
+        if not paths:
+            return None
+        duration = int(float(paths[0].get("duration", 0)))  # 高德路径字段：耗时，单位秒
+        distance = paths[0].get("distance", "未知")  # 高德路径字段：距离，单位米
+        return "打车/驾车", duration, f"预计耗时{_format_duration(duration)}，距离约{distance}米"
+    except Exception:
+        return None
+
+
+def _query_walking(origin_location: str, destination_location: str) -> tuple[str, int, str] | None:
+    try:
+        walking_data = _request_amap(
+            "/v3/direction/walking",
+            {
+                "origin": origin_location,  # 高德步行路径入参：起点经纬度
+                "destination": destination_location,  # 高德步行路径入参：终点经纬度
+            },
+        )
+        paths = (walking_data.get("route") or {}).get("paths") or []  # 高德步行路径返回字段：路线列表
+        if not paths:
+            return None
+        duration = int(float(paths[0].get("duration", 0)))  # 高德路径字段：耗时，单位秒
+        distance = paths[0].get("distance", "未知")  # 高德路径字段：距离，单位米
+        return "步行", duration, f"预计耗时{_format_duration(duration)}，距离约{distance}米"
+    except Exception:
+        return None
 
 
 @tool(description="规划两个地点之间的路线。城市内默认按耗时最短思路；跨城市优先建议铁路/高铁")
@@ -380,61 +467,25 @@ def plan_route(
     origin_location = origin_geo["location"]
     destination_location = destination_geo["location"]
 
-    route_results: list[tuple[str, int, str]] = []
-
+    tasks: list = []
     if mode in ("mixed", "transit"):
-        try:
-            transit_data = _request_amap(
-                "/v3/direction/transit/integrated",
-                {
-                    "origin": origin_location,  # 高德公交路径入参：起点经纬度
-                    "destination": destination_location,  # 高德公交路径入参：终点经纬度
-                    "city": city or origin_geo.get("adcode"),  # 高德公交路径入参：起点城市
-                    "cityd": city or destination_geo.get("adcode"),  # 高德公交路径入参：终点城市
-                    "strategy": 0,  # 高德公交路径入参：推荐策略
-                },
+        tasks.append(
+            lambda: _query_transit(
+                origin_location,
+                destination_location,
+                city,
+                origin_geo.get("adcode", ""),
+                destination_geo.get("adcode", ""),
             )
-            transits = (transit_data.get("route") or {}).get("transits") or []  # 高德公交路径返回字段：公交方案
-            if transits:
-                duration = int(float(transits[0].get("duration", 0)))  # 高德路径字段：耗时，单位秒
-                route_results.append(("公共交通", duration, f"预计耗时{_format_duration(duration)}"))
-        except Exception:
-            pass
-
+        )
     if mode in ("mixed", "driving"):
-        try:
-            driving_data = _request_amap(
-                "/v3/direction/driving",
-                {
-                    "origin": origin_location,  # 高德驾车路径入参：起点经纬度
-                    "destination": destination_location,  # 高德驾车路径入参：终点经纬度
-                    "strategy": 10,  # 高德驾车路径入参：返回速度优先方案
-                },
-            )
-            paths = (driving_data.get("route") or {}).get("paths") or []  # 高德驾车路径返回字段：路线列表
-            if paths:
-                duration = int(float(paths[0].get("duration", 0)))  # 高德路径字段：耗时，单位秒
-                distance = paths[0].get("distance", "未知")  # 高德路径字段：距离，单位米
-                route_results.append(("打车/驾车", duration, f"预计耗时{_format_duration(duration)}，距离约{distance}米"))
-        except Exception:
-            pass
-
+        tasks.append(lambda: _query_driving(origin_location, destination_location))
     if mode in ("mixed", "walking"):
-        try:
-            walking_data = _request_amap(
-                "/v3/direction/walking",
-                {
-                    "origin": origin_location,  # 高德步行路径入参：起点经纬度
-                    "destination": destination_location,  # 高德步行路径入参：终点经纬度
-                },
-            )
-            paths = (walking_data.get("route") or {}).get("paths") or []  # 高德步行路径返回字段：路线列表
-            if paths:
-                duration = int(float(paths[0].get("duration", 0)))  # 高德路径字段：耗时，单位秒
-                distance = paths[0].get("distance", "未知")  # 高德路径字段：距离，单位米
-                route_results.append(("步行", duration, f"预计耗时{_format_duration(duration)}，距离约{distance}米"))
-        except Exception:
-            pass
+        tasks.append(lambda: _query_walking(origin_location, destination_location))
+
+    with ThreadPoolExecutor(max_workers=max(len(tasks), 1)) as executor:
+        results = [future.result() for future in [executor.submit(task) for task in tasks]]
+    route_results: list[tuple[str, int, str]] = [result for result in results if result]
 
     if not route_results:
         return (

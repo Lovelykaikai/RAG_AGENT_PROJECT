@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Tourism Guide Agent",
+    "subtitle": "RAG-enhanced travel planning system based on FastAPI, LangGraph and external travel services",
+    "output": "project-architecture.html",
+    "quality_profile": "showcase",
+    "visual_preset": "signal-flow",
+    "views": [
+      {
+        "id": "chat-path",
+        "label": "Chat request path",
+        "focus": ["browser", "api", "agent", "tools", "model", "mysql"],
+        "note": "Follow a chat request from the browser through the agent and persisted conversation state."
+      },
+      {
+        "id": "knowledge-path",
+        "label": "Knowledge retrieval",
+        "focus": ["agent", "tools", "rag", "chroma", "model", "knowledge"],
+        "note": "Inspect how local travel documents become city-filtered retrieval context."
+      },
+      {
+        "id": "live-services",
+        "label": "Live travel services",
+        "focus": ["tools", "amap", "tavily", "model"],
+        "note": "See the external services used for weather, POI, routes and time-sensitive search."
+      }
+    ]
+  },
+  "components": [
+    { "id": "browser", "type": "frontend", "label": "Web UI", "sublabel": "static/index.html + ES modules", "pos": [40, 300], "size": [150, 68] },
+    { "id": "api", "type": "backend", "label": "FastAPI API", "sublabel": "/api sessions + NDJSON chat", "pos": [260, 300], "size": [160, 68] },
+    { "id": "agent", "type": "backend", "label": "ReactAgent", "sublabel": "LangChain agent + LangGraph", "pos": [490, 300], "size": [170, 68], "tag": "orchestration" },
+    { "id": "tools", "type": "backend", "label": "Travel tools", "sublabel": "weather / POI / route / search", "pos": [730, 300], "size": [170, 68] },
+    { "id": "model", "type": "cloud", "label": "DashScope model", "sublabel": "Qwen chat + embeddings", "pos": [960, 130], "size": [170, 68], "tag": "DASHSCOPE_API_KEY" },
+    { "id": "rag", "type": "backend", "label": "RAG service", "sublabel": "retrieve and summarize context", "pos": [960, 300], "size": [170, 68] },
+    { "id": "chroma", "type": "database", "label": "Chroma vector store", "sublabel": "city-filtered embeddings", "pos": [1190, 300], "size": [170, 68] },
+    { "id": "knowledge", "type": "database", "label": "Travel knowledge", "sublabel": "data/*.txt, PDF and DOCX", "pos": [1190, 470], "size": [170, 68] },
+    { "id": "amap", "type": "external", "label": "Amap APIs", "sublabel": "geocode / weather / POI / route", "pos": [960, 470], "size": [170, 68], "tag": "AMAP_API_KEY" },
+    { "id": "tavily", "type": "external", "label": "Tavily Search", "sublabel": "time-sensitive web results", "pos": [730, 500], "size": [170, 68], "tag": "TAVILY_API_KEY" },
+    { "id": "mysql", "type": "database", "label": "MySQL persistence", "sublabel": "sessions + checkpoints", "pos": [490, 470], "size": [170, 68], "tag": "CHECKPOINT_DB_URI" }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "Application workspace", "wraps": ["api", "agent", "tools", "rag"] },
+    { "kind": "security-group", "label": "Credentials and persistence boundary", "wraps": ["model", "amap", "tavily", "mysql"] }
+  ],
+  "connections": [
+    { "id": "browser-api", "from": "browser", "to": "api", "label": "HTTP / NDJSON", "variant": "emphasis" },
+    { "id": "api-agent", "from": "api", "to": "agent", "label": "query + thread_id", "labelDy": 58 },
+    { "id": "agent-tools", "from": "agent", "to": "tools", "label": "tool calls" },
+    { "id": "agent-model", "from": "agent", "to": "model", "label": "reasoning", "fromSide": "top", "toSide": "left" },
+    { "id": "agent-mysql", "from": "agent", "to": "mysql", "label": "checkpoint state", "fromSide": "bottom", "toSide": "top", "labelDy": 24 },
+    { "id": "tools-rag", "from": "tools", "to": "rag", "label": "rag_summarize", "fromSide": "right", "toSide": "left", "labelDy": 58 },
+    { "id": "rag-chroma", "from": "rag", "to": "chroma", "label": "vector retrieval", "labelDy": -28 },
+    { "id": "chroma-knowledge", "from": "chroma", "to": "knowledge", "label": "ingest / MD5 refresh", "variant": "dashed", "fromSide": "bottom", "toSide": "top", "labelDy": 24 },
+    { "id": "rag-model", "from": "rag", "to": "model", "label": "summarize", "fromSide": "top", "toSide": "bottom" },
+    { "id": "tools-amap", "from": "tools", "to": "amap", "label": "weather / POI / route", "fromSide": "bottom", "toSide": "top" },
+    { "id": "tools-tavily", "from": "tools", "to": "tavily", "label": "web search", "variant": "dashed", "fromSide": "bottom", "toSide": "top", "labelAt": [700, 440] }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Request orchestration", "items": ["FastAPI streams agent events as NDJSON", "ReactAgent preserves thread context", "Middleware switches to report prompt when requested"] },
+    { "dot": "emerald", "title": "Grounded travel knowledge", "items": ["Documents are split by city section", "Chroma supports city metadata filtering", "RAG summarizes retrieved context before final response"] },
+    { "dot": "amber", "title": "Operational dependencies", "items": ["DashScope credentials power chat and embeddings", "Amap supplies live map and weather data", "MySQL stores session metadata and LangGraph checkpoints"] }
+  ]
+}
