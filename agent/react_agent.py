@@ -2,6 +2,7 @@ from collections.abc import Iterator
 from typing import Any
 
 from langchain.agents import create_agent
+from langchain_core.messages import AIMessageChunk
 from langgraph.checkpoint.base import BaseCheckpointSaver
 
 from agent.tools.agent_tools import TOOLS
@@ -107,6 +108,10 @@ class ReactAgent:
             ):
                 if mode == "messages":
                     message_chunk, _metadata = payload
+                    # messages 模式同时会产生 AI token 和 ToolMessage；工具原始结果
+                    # 只能作为模型上下文，不能透传到用户的回答气泡。
+                    if not isinstance(message_chunk, AIMessageChunk):
+                        continue
                     content = getattr(message_chunk, "content", None)
                     if content:
                         yield {

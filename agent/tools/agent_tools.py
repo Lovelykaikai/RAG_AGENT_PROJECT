@@ -36,6 +36,15 @@ def _get_rag_service() -> RagSummarizeService:
 
 
 _SEARCH_RESULT_PREFIX = "联网搜索结果："  # 与 WebSearchService._format_results 的开头保持一致
+_RAG_INSUFFICIENT_MESSAGE = "参考资料不足，无法完整总结。"
+
+
+def _hide_rag_insufficient_message(result: str) -> str:
+    """Do not expose the RAG no-match fallback to the outer agent's answer."""
+    if result.strip() == _RAG_INSUFFICIENT_MESSAGE:
+        logger.info("[rag]本地知识库未命中，隐藏内部兜底提示")
+        return ""
+    return result
 
 
 def _search_fallback(query: str, city: str | None = None) -> str:
@@ -226,10 +235,11 @@ def _fetch_forecast(city: str) -> tuple[list[dict[str, Any]], str]:
 def rag_summarize(query: str, city: str | None = None) -> str:
     """检索本地旅游知识库，并把相关资料总结成攻略参考。"""
     try:
-        return _get_rag_service().rag_summarize(query, city)
+        result = _get_rag_service().rag_summarize(query, city)
     except Exception as exc:
         logger.error(f"[rag_summarize]检索本地知识库失败: {str(exc)}", exc_info=True)
-        return _search_fallback(query, city)
+        result = _search_fallback(query, city)
+    return _hide_rag_insufficient_message(result)
 
 
 @tool(
@@ -361,14 +371,16 @@ def get_city_transport(city: str) -> str:
     """总结目的地城市的市内交通方式、景区衔接和出行注意事项。"""
     query = f"{city} 市内交通 地铁 机场 火车站 景点 出行建议"
     try:
-        summary = _get_rag_service().rag_summarize(query)
+        summary = _get_rag_service().rag_summarize(query, city)
+        if summary.strip() == _RAG_INSUFFICIENT_MESSAGE:
+            return _hide_rag_insufficient_message(summary)
         if summary:
             return summary
         logger.warning(f"[get_city_transport]本地知识库未返回{city}的交通资料")
     except Exception as exc:
         logger.warning(f"[get_city_transport]检索{city}交通资料失败: {str(exc)}")
 
-    return _search_fallback(query)
+    return _hide_rag_insufficient_message(_search_fallback(query))
 
 
 def _query_transit(
