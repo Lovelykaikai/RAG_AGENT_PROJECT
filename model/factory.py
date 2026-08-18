@@ -12,6 +12,26 @@ from utils.config_handler import rag_conf
 load_dotenv()
 
 
+def _bypass_proxy_for_dashscope_embeddings() -> None:
+    """Avoid local proxy TLS resets on the native DashScope embedding endpoint."""
+    if os.getenv("DASHSCOPE_EMBEDDING_USE_PROXY", "false").lower() in {
+        "1",
+        "true",
+        "yes",
+    }:
+        return
+
+    native_host = "dashscope.aliyuncs.com"
+    for variable in ("NO_PROXY", "no_proxy"):
+        entries = [item.strip() for item in os.getenv(variable, "").split(",") if item.strip()]
+        if native_host not in entries:
+            entries.append(native_host)
+            os.environ[variable] = ",".join(entries)
+
+
+_bypass_proxy_for_dashscope_embeddings()
+
+
 DashScope_chat_model = init_chat_model(
     model=rag_conf["chat_model_name"],
     model_provider="openai",
