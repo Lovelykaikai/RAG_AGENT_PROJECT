@@ -1,2 +1,0 @@
-2026-07-26 15:31:16,495 [ERROR] agent:file_handler.py:36:listdir_with_allowed_type - data不是文件夹
-2026-07-26 15:31:16,495 [ERROR] agent:file_handler.py:11:get_file_md5_hex - [md5计算]文件.txt不存在
